@@ -57,8 +57,7 @@ The script:
 ```
 YouTubeFilter/
 ├── README.md           # This file
-├── YouTubeFilter.user.js    # Main userscript
-└── context.html        # Example of the popup structure
+└──  YouTubeFilter.user.js    # Main userscript
 ```
 
 ## Version History
