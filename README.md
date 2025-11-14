@@ -14,7 +14,7 @@ A Tampermonkey userscript that adds a search filter to YouTube's "Save to Playli
 
 ### Prerequisites
 You need to have **Tampermonkey** extension installed:
-- [Chrome/Edge - Tampermonkey](https://chrome.google.com/webstore/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobp55f)
+- [Chrome/Edge - Tampermonkey](https://chromewebstore.google.com/detail/tampermonkey/dhdgffkkebhmkfjojejmpbldmpobfkfo)
 - [Firefox - Tampermonkey](https://addons.mozilla.org/firefox/addon/tampermonkey/)
 - [Safari - Tampermonkey](https://apps.apple.com/us/app/tampermonkey/id1482490089)
 - [Opera - Tampermonkey](https://addons.opera.com/extensions/details/tampermonkey-beta/)
@@ -23,10 +23,10 @@ You need to have **Tampermonkey** extension installed:
 
 **Click the button below to install:**
 
-[![Install Script](https://img.shields.io/badge/Install-YouTubeFilter-brightgreen?style=flat-square)](https://raw.githubusercontent.com/htsachakis/YouTubeFilter/main/YouTubeFilter.js)
+[![Install Script](https://img.shields.io/badge/Install-YouTubeFilter-brightgreen?style=flat-square)](https://raw.githubusercontent.com/htsachakis/YouTubeFilter/main/YouTubeFilter.user.js)
 
 Or manually:
-1. Open the [YouTubeFilter.js](https://raw.githubusercontent.com/htsachakis/YouTubeFilter/main/YouTubeFilter.js) file
+1. Open the [YouTubeFilter.user.js](https://raw.githubusercontent.com/htsachakis/YouTubeFilter/main/YouTubeFilter.user.js) file
 2. Click the "Install this script" button in Tampermonkey
 3. Review the permissions and click "Install"
 
@@ -57,7 +57,7 @@ The script:
 ```
 YouTubeFilter/
 ├── README.md           # This file
-├── YouTubeFilter.js    # Main userscript
+├── YouTubeFilter.user.js    # Main userscript
 └── context.html        # Example of the popup structure
 ```
 
