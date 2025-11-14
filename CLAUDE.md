@@ -36,7 +36,7 @@ YouTubeFilter is a Tampermonkey userscript that enhances YouTube's playlist savi
 
 ## File Structure (To Be Created)
 
-- `YouTubeFilter.js` - Main userscript file
+- `YouTubeFilter.user.js` - Main userscript file
   - Script metadata block (name, version, match patterns, etc.)
   - Initialization code
   - Event listeners and popup detection
