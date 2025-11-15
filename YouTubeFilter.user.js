@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Playlist Filter
 // @namespace    http://tampermonkey.net/
-// @version      0.1.2
+// @version      0.1.3
 // @description  Add a search filter to YouTube's "Save to Playlist" popup
 // @author       htsachakis
 // @match        https://www.youtube.com/*
