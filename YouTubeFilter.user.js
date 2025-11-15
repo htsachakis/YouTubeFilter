@@ -9,8 +9,8 @@
 // @grant        GM_addStyle
 // @grant        unsafeWindow
 // @run-at       document-end
-// @downloadURL  https://raw.githubusercontent.com/htsachakis/YouTubeFilter/main/YouTubeFilter.js
-// @updateURL    https://raw.githubusercontent.com/htsachakis/YouTubeFilter/main/YouTubeFilter.js
+// @downloadURL  https://github.com/htsachakis/YouTubeFilter/raw/refs/heads/main/YouTubeFilter.user.js
+// @updateURL    https://github.com/htsachakis/YouTubeFilter/raw/refs/heads/main/YouTubeFilter.user.js
 // ==/UserScript==
 
 (function() {
