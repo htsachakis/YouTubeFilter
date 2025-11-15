@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Playlist Filter
 // @namespace    http://tampermonkey.net/
-// @version      0.1.0
+// @version      0.1.1
 // @description  Add a search filter to YouTube's "Save to Playlist" popup
 // @author       htsachakis
 // @match        https://www.youtube.com/*
@@ -13,7 +13,7 @@
 // @updateURL    https://github.com/htsachakis/YouTubeFilter/raw/refs/heads/main/YouTubeFilter.user.js
 // ==/UserScript==
 
-(function() {
+(function () {
   'use strict';
 
   // Log to confirm script is running
@@ -46,31 +46,31 @@
     const css = `
       #${CONFIG.SEARCH_CONTAINER_ID} {
         padding: 12px 16px;
-        border-bottom: 1px solid rgba(0, 0, 0, 0.1);
-        background-color: #fff;
+        border-bottom: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
+        background-color: transparent;
         flex-shrink: 0;
       }
 
       #${CONFIG.SEARCH_INPUT_ID} {
         width: 100%;
         padding: 8px 12px;
-        border: 1px solid rgba(0, 0, 0, 0.2);
+        border: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.2));
         border-radius: 2px;
         font-size: 13px;
-        font-family: -apple-system, BlinkMacSystemFont, "Segoe UI", Arial, sans-serif;
+        font-family: "Roboto", "Arial", sans-serif;
         box-sizing: border-box;
-        background-color: #fff;
-        color: #030303;
+        background-color: transparent;
+        color: var(--yt-spec-text-primary, #030303);
         transition: border-color 0.2s;
       }
 
       #${CONFIG.SEARCH_INPUT_ID}::placeholder {
-        color: rgba(0, 0, 0, 0.54);
+        color: var(--yt-spec-text-secondary, rgba(0, 0, 0, 0.54));
       }
 
       #${CONFIG.SEARCH_INPUT_ID}:focus {
         outline: none;
-        border-color: #1f1f1f;
+        border-color: var(--yt-spec-call-to-action, #065fd4);
         box-shadow: 0 1px 2px 0 rgba(0, 0, 0, 0.1);
       }
 
@@ -87,7 +87,7 @@
    */
   function setupPopupObserver() {
     // Observe the entire document for popup appearance
-    const observer = new MutationObserver(function(mutations) {
+    const observer = new MutationObserver(function (mutations) {
       // Look for the playlist popup - YouTube uses tp-yt-iron-dropdown for the save popup
       const popups = document.querySelectorAll('tp-yt-iron-dropdown, tp-yt-paper-dialog, .yt-dialog, [role="dialog"]');
 
@@ -154,9 +154,9 @@
 
     // Fallback to older structure if needed
     const selectors = [
-      '[role="listbox"]',     // Standard ARIA pattern
-      'yt-list-view-model',   // YouTube list component
-      '.yt-simple-menu-item',  // Custom YouTube menu items
+      '[role="listbox"]', // Standard ARIA pattern
+      'yt-list-view-model', // YouTube list component
+      '.yt-simple-menu-item', // Custom YouTube menu items
     ];
 
     for (const selector of selectors) {
@@ -251,9 +251,9 @@
 
     // Fallback to alternative selectors if the primary one doesn't work
     const selectors = [
-      '[role="listitem"]',         // Standard ARIA pattern
+      '[role="listitem"]', // Standard ARIA pattern
       'toggleable-list-item-view-model', // YouTube toggleable item wrapper
-      '.yt-simple-menu-item',      // Custom YouTube menu items
+      '.yt-simple-menu-item', // Custom YouTube menu items
     ];
 
     for (const selector of selectors) {
