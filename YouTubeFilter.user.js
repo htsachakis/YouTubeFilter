@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Playlist Filter
 // @namespace    http://tampermonkey.net/
-// @version      0.1.1
+// @version      0.1.2
 // @description  Add a search filter to YouTube's "Save to Playlist" popup
 // @author       htsachakis
 // @match        https://www.youtube.com/*
@@ -121,8 +121,21 @@
         return;
       }
 
-      if (document.getElementById(CONFIG.SEARCH_INPUT_ID)) {
-        console.log('[YouTubeFilter] Search input already exists');
+      // Check if search input already exists
+      const existingInput = document.getElementById(CONFIG.SEARCH_INPUT_ID);
+      if (existingInput) {
+        console.log('[YouTubeFilter] Search input already exists, clearing it');
+        searchInput = existingInput;
+        playlistPopup = popup;
+
+        // Clear the filter and show all playlists
+        clearFilterAndShowAll();
+
+        // Set up listeners for the reopened popup
+        setupPlaylistClickListener(popup);
+        setupOutsideClickListener(popup);
+        setupPopupCloseObserver(popup);
+
         return;
       }
 
@@ -135,6 +148,15 @@
 
       // Set up event listener for filtering
       searchInput.addEventListener('input', handleSearchInput);
+
+      // Set up listener to clear input when a playlist is clicked
+      setupPlaylistClickListener(popup);
+
+      // Set up listener to clear input when clicking outside the popup
+      setupOutsideClickListener(popup);
+
+      // Set up observer to detect when popup closes
+      setupPopupCloseObserver(popup);
 
       console.log('[YouTubeFilter] Search input injected successfully');
     }, 100);
@@ -293,12 +315,100 @@
   }
 
   /**
-   * Clean up when popup closes
+   * Set up listener to clear input when a playlist is clicked
+   * @param {Element} popup - The playlist popup element
    */
-  function cleanupPopup() {
+  function setupPlaylistClickListener(popup) {
+    // Listen for clicks on playlist items
+    popup.addEventListener('click', (event) => {
+      // Check if the click was on a playlist item or its children
+      const playlistItem = event.target.closest('yt-list-item-view-model[role="listitem"]');
+
+      if (playlistItem && searchInput) {
+        console.log('[YouTubeFilter] Playlist item clicked, clearing filter');
+        clearFilterAndShowAll();
+      }
+    }, true); // Use capture phase to catch the event early
+  }
+
+  /**
+   * Set up listener to clear input when clicking outside the popup
+   * @param {Element} popup - The playlist popup element
+   */
+  function setupOutsideClickListener(popup) {
+    // Listen for clicks on the document
+    const outsideClickHandler = (event) => {
+      // Check if the click was outside the popup
+      if (searchInput && !popup.contains(event.target)) {
+        console.log('[YouTubeFilter] Clicked outside popup, clearing filter');
+        clearFilterAndShowAll();
+      }
+    };
+
+    // Add listener with a small delay to avoid immediate triggering
+    setTimeout(() => {
+      document.addEventListener('click', outsideClickHandler, true);
+    }, 200);
+
+    // Store the handler so we can remove it later
+    popup._outsideClickHandler = outsideClickHandler;
+  }
+
+  /**
+   * Set up observer to detect when the popup closes
+   * @param {Element} popup - The playlist popup element
+   */
+  function setupPopupCloseObserver(popup) {
+    // Observe when the popup is removed from the DOM or hidden
+    const observer = new MutationObserver((mutations) => {
+      // Check if popup is still in the document
+      if (!document.contains(popup)) {
+        console.log('[YouTubeFilter] Popup closed, cleaning up');
+        cleanupPopup(popup);
+        observer.disconnect();
+      }
+    });
+
+    // Observe the popup's parent to detect when it's removed
+    if (popup.parentNode) {
+      observer.observe(popup.parentNode, {
+        childList: true,
+      });
+    }
+  }
+
+  /**
+   * Clear the filter input and show all playlists
+   */
+  function clearFilterAndShowAll() {
+    if (searchInput) {
+      searchInput.value = '';
+
+      // Clear all filters to show all playlists again
+      if (playlistPopup) {
+        const playlistItems = findPlaylistItems(playlistPopup);
+        playlistItems.forEach((item) => {
+          item.classList.remove(CONFIG.FILTERED_CLASS);
+        });
+      }
+    }
+  }
+
+  /**
+   * Clean up when popup closes
+   * @param {Element} popup - The playlist popup element
+   */
+  function cleanupPopup(popup) {
     if (searchInput) {
       searchInput.removeEventListener('input', handleSearchInput);
     }
+
+    // Remove outside click listener
+    if (popup && popup._outsideClickHandler) {
+      document.removeEventListener('click', popup._outsideClickHandler, true);
+      delete popup._outsideClickHandler;
+    }
+
     searchInput = null;
     playlistPopup = null;
   }
