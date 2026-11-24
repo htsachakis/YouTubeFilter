@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Playlist Filter
 // @namespace    http://tampermonkey.net/
-// @version      0.1.5
+// @version      0.1.6
 // @description  Add a search filter to YouTube's "Save to Playlist" popup
 // @author       htsachakis
 // @match        https://www.youtube.com/*
@@ -24,12 +24,16 @@
     SEARCH_INPUT_ID: 'yt-filter-playlist-search',
     SEARCH_CONTAINER_ID: 'yt-filter-playlist-container',
     FILTERED_CLASS: 'yt-filter-hidden',
+    // Marks the playlist list whose height is fixed, so the popup never resizes while filtering
+    HEIGHT_LOCK_ATTR: 'data-yt-filter-height-locked',
+    HEIGHT_VAR: '--yt-filter-list-height',
+    MIN_LIST_HEIGHT: 100,
   };
 
   // State
   let searchInput = null;
   let playlistPopup = null;
-  // Element whose height is held while a filter is active, so the popup keeps its size
+  // The playlist list whose height is currently fixed
   let heightLockedElement = null;
 
   /**
@@ -46,11 +50,8 @@
    */
   function injectStyles() {
     const css = `
-      /* Stays pinned to the top of the popup while the playlists scroll under it */
+      /* Sits in the popup header, above the scrolling playlist list */
       #${CONFIG.SEARCH_CONTAINER_ID} {
-        position: sticky;
-        top: 0;
-        z-index: 2;
         padding: 12px 16px;
         border-bottom: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
         background-color: var(--yt-spec-menu-background, var(--yt-spec-base-background, #fff));
@@ -82,6 +83,15 @@
 
       .${CONFIG.FILTERED_CLASS} {
         display: none !important;
+      }
+
+      /* Fixed list height: YouTube resizes the list through its inline max-height,
+         which these !important rules override */
+      [${CONFIG.HEIGHT_LOCK_ATTR}] {
+        height: var(${CONFIG.HEIGHT_VAR}) !important;
+        min-height: var(${CONFIG.HEIGHT_VAR}) !important;
+        max-height: var(${CONFIG.HEIGHT_VAR}) !important;
+        box-sizing: border-box !important;
       }
     `;
 
@@ -136,6 +146,7 @@
 
         // Clear the filter and show all playlists
         clearFilterAndShowAll();
+        fixListHeight(popup);
 
         // Set up listeners for the reopened popup
         setupPlaylistClickListener(popup);
@@ -147,10 +158,13 @@
 
       // Create and inject the search input
       const searchContainer = createSearchContainer();
-      playlistContainer.insertBefore(searchContainer, playlistContainer.firstChild);
+      placeSearchContainer(popup, playlistContainer, searchContainer);
 
       searchInput = document.getElementById(CONFIG.SEARCH_INPUT_ID);
       playlistPopup = popup;
+
+      // Fix the list height now that the search box takes up room in the popup
+      fixListHeight(popup);
 
       // Set up event listener for filtering
       searchInput.addEventListener('input', handleSearchInput);
@@ -166,6 +180,74 @@
 
       console.log('[YouTubeFilter] Search input injected successfully');
     }, 100);
+  }
+
+  /**
+   * Put the search box outside the scrolling list: in the popup header when there
+   * is one, otherwise just above the list
+   * @param {Element} popup - The playlist popup element
+   * @param {Element} list - The playlist list element
+   * @param {Element} searchContainer - The search box container
+   */
+  function placeSearchContainer(popup, list, searchContainer) {
+    const header = popup.querySelector('.ytContextualSheetLayoutHeaderContainer');
+    if (header) {
+      header.appendChild(searchContainer);
+    } else if (list !== popup && list.parentNode) {
+      list.parentNode.insertBefore(searchContainer, list);
+    } else {
+      popup.insertBefore(searchContainer, popup.firstChild);
+    }
+  }
+
+  /**
+   * Fix the playlist list at its current height, less any room the search box
+   * pushed out of the popup, so filtering never resizes the popup
+   * @param {Element} popup - The playlist popup element
+   */
+  function fixListHeight(popup) {
+    const list = findPlaylistContainer(popup);
+    if (!list || list === popup) {
+      return;
+    }
+
+    // Measure the list as YouTube sized it
+    releaseListHeight();
+    const listRect = list.getBoundingClientRect();
+    if (listRect.height <= 0) {
+      return;
+    }
+
+    // How far the search box pushed the list or the footer past the popup's bottom
+    let overflow = 0;
+    const sheet = list.closest('yt-sheet-view-model');
+    if (sheet) {
+      const sheetBottom = sheet.getBoundingClientRect().bottom;
+      const footer = sheet.querySelector('.ytContextualSheetLayoutFooterContainer');
+      if (footer) {
+        overflow = Math.max(overflow, footer.getBoundingClientRect().bottom - sheetBottom);
+      }
+      const parentBottom = list.parentElement ? list.parentElement.getBoundingClientRect().bottom : sheetBottom;
+      overflow = Math.max(overflow, listRect.bottom - Math.min(sheetBottom, parentBottom));
+    }
+
+    const minimum = Math.min(listRect.height, CONFIG.MIN_LIST_HEIGHT);
+    const height = Math.max(minimum, Math.floor(listRect.height - overflow));
+
+    list.style.setProperty(CONFIG.HEIGHT_VAR, `${height}px`);
+    list.setAttribute(CONFIG.HEIGHT_LOCK_ATTR, '');
+    heightLockedElement = list;
+  }
+
+  /**
+   * Let YouTube size the playlist list again
+   */
+  function releaseListHeight() {
+    if (heightLockedElement) {
+      heightLockedElement.removeAttribute(CONFIG.HEIGHT_LOCK_ATTR);
+      heightLockedElement.style.removeProperty(CONFIG.HEIGHT_VAR);
+      heightLockedElement = null;
+    }
   }
 
   /**
@@ -240,14 +322,6 @@
       return;
     }
 
-    // Keep the popup at its full size while filtering, so it neither shrinks
-    // as playlists are hidden nor gets stuck small when the query is cleared
-    if (searchQuery === '') {
-      unlockPopupHeight();
-    } else {
-      lockPopupHeight(playlistPopup);
-    }
-
     // Find all playlist items (will need adjustment based on actual YouTube structure)
     const playlistItems = findPlaylistItems(playlistPopup);
 
@@ -269,71 +343,6 @@
         }
       }
     });
-  }
-
-  /**
-   * Find the element that scrolls the playlist list, between the list and the popup
-   * @param {Element} list - The playlist list element
-   * @param {Element} popup - The playlist popup element
-   * @returns {Element|null} The scrolling element, or null if it is not reachable
-   */
-  function findScrollContainer(list, popup) {
-    let element = list;
-    while (element && element !== popup) {
-      const overflowY = getComputedStyle(element).overflowY;
-      if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
-        return element;
-      }
-      element = element.parentElement;
-    }
-    return null;
-  }
-
-  /**
-   * Hold the popup at its current (unfiltered) size. Called before playlists are hidden.
-   * @param {Element} popup - The playlist popup element
-   */
-  function lockPopupHeight(popup) {
-    if (heightLockedElement) {
-      return; // Already locked at the full size
-    }
-
-    const list = findPlaylistContainer(popup);
-    if (!list) {
-      return;
-    }
-
-    const scroller = findScrollContainer(list, popup);
-    let target;
-    let height;
-
-    if (scroller) {
-      // The scroller's own height is the visible height of the list
-      target = scroller;
-      height = scroller.getBoundingClientRect().height;
-    } else {
-      // The scroller is out of reach (e.g. inside a shadow root): hold the list
-      // at the part of it that is visible inside the popup
-      target = list;
-      const listRect = list.getBoundingClientRect();
-      const popupRect = popup.getBoundingClientRect();
-      height = Math.min(listRect.height, popupRect.bottom - listRect.top);
-    }
-
-    if (height > 0) {
-      target.style.minHeight = `${Math.round(height)}px`;
-      heightLockedElement = target;
-    }
-  }
-
-  /**
-   * Let the popup size itself again
-   */
-  function unlockPopupHeight() {
-    if (heightLockedElement) {
-      heightLockedElement.style.minHeight = '';
-      heightLockedElement = null;
-    }
   }
 
   /**
@@ -375,7 +384,8 @@
    */
   function extractPlaylistName(item) {
     // YouTube uses specific class for the title in yt-list-item-view-model
-    const titleElement = item.querySelector('.yt-list-item-view-model__title');
+    // (ytListItemViewModelTitle in the current markup, the older BEM name before it)
+    const titleElement = item.querySelector('.ytListItemViewModelTitle, .yt-list-item-view-model__title');
     if (titleElement) {
       return titleElement.textContent.trim();
     }
@@ -472,7 +482,6 @@
       }
     }
 
-    unlockPopupHeight();
   }
 
   /**
@@ -490,7 +499,7 @@
       delete popup._outsideClickHandler;
     }
 
-    unlockPopupHeight();
+    releaseListHeight();
     searchInput = null;
     playlistPopup = null;
   }
