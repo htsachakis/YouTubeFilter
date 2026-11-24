@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Playlist Filter
 // @namespace    http://tampermonkey.net/
-// @version      0.1.6
+// @version      0.1.7
 // @description  Add a search filter to YouTube's "Save to Playlist" popup
 // @author       htsachakis
 // @match        https://www.youtube.com/*
@@ -54,7 +54,7 @@
       #${CONFIG.SEARCH_CONTAINER_ID} {
         padding: 12px 16px;
         border-bottom: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
-        background-color: var(--yt-spec-menu-background, var(--yt-spec-base-background, #fff));
+        background-color: transparent;
         flex-shrink: 0;
       }
 
