@@ -59,7 +59,7 @@
         font-size: 13px;
         font-family: "Roboto", "Arial", sans-serif;
         box-sizing: border-box;
-        background-color: transparent;
+        background-color: white;
         color: var(--yt-spec-text-primary, #030303);
         transition: border-color 0.2s;
       }
