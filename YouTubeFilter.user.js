@@ -1,7 +1,7 @@
 // ==UserScript==
 // @name         YouTube Playlist Filter
 // @namespace    http://tampermonkey.net/
-// @version      0.1.4
+// @version      0.1.5
 // @description  Add a search filter to YouTube's "Save to Playlist" popup
 // @author       htsachakis
 // @match        https://www.youtube.com/*
@@ -29,6 +29,8 @@
   // State
   let searchInput = null;
   let playlistPopup = null;
+  // Element whose height is held while a filter is active, so the popup keeps its size
+  let heightLockedElement = null;
 
   /**
    * Initialize the script
@@ -44,10 +46,14 @@
    */
   function injectStyles() {
     const css = `
+      /* Stays pinned to the top of the popup while the playlists scroll under it */
       #${CONFIG.SEARCH_CONTAINER_ID} {
+        position: sticky;
+        top: 0;
+        z-index: 2;
         padding: 12px 16px;
         border-bottom: 1px solid var(--yt-spec-10-percent-layer, rgba(0, 0, 0, 0.1));
-        background-color: transparent;
+        background-color: var(--yt-spec-menu-background, var(--yt-spec-base-background, #fff));
         flex-shrink: 0;
       }
 
@@ -234,6 +240,14 @@
       return;
     }
 
+    // Keep the popup at its full size while filtering, so it neither shrinks
+    // as playlists are hidden nor gets stuck small when the query is cleared
+    if (searchQuery === '') {
+      unlockPopupHeight();
+    } else {
+      lockPopupHeight(playlistPopup);
+    }
+
     // Find all playlist items (will need adjustment based on actual YouTube structure)
     const playlistItems = findPlaylistItems(playlistPopup);
 
@@ -255,6 +269,71 @@
         }
       }
     });
+  }
+
+  /**
+   * Find the element that scrolls the playlist list, between the list and the popup
+   * @param {Element} list - The playlist list element
+   * @param {Element} popup - The playlist popup element
+   * @returns {Element|null} The scrolling element, or null if it is not reachable
+   */
+  function findScrollContainer(list, popup) {
+    let element = list;
+    while (element && element !== popup) {
+      const overflowY = getComputedStyle(element).overflowY;
+      if (overflowY === 'auto' || overflowY === 'scroll' || overflowY === 'overlay') {
+        return element;
+      }
+      element = element.parentElement;
+    }
+    return null;
+  }
+
+  /**
+   * Hold the popup at its current (unfiltered) size. Called before playlists are hidden.
+   * @param {Element} popup - The playlist popup element
+   */
+  function lockPopupHeight(popup) {
+    if (heightLockedElement) {
+      return; // Already locked at the full size
+    }
+
+    const list = findPlaylistContainer(popup);
+    if (!list) {
+      return;
+    }
+
+    const scroller = findScrollContainer(list, popup);
+    let target;
+    let height;
+
+    if (scroller) {
+      // The scroller's own height is the visible height of the list
+      target = scroller;
+      height = scroller.getBoundingClientRect().height;
+    } else {
+      // The scroller is out of reach (e.g. inside a shadow root): hold the list
+      // at the part of it that is visible inside the popup
+      target = list;
+      const listRect = list.getBoundingClientRect();
+      const popupRect = popup.getBoundingClientRect();
+      height = Math.min(listRect.height, popupRect.bottom - listRect.top);
+    }
+
+    if (height > 0) {
+      target.style.minHeight = `${Math.round(height)}px`;
+      heightLockedElement = target;
+    }
+  }
+
+  /**
+   * Let the popup size itself again
+   */
+  function unlockPopupHeight() {
+    if (heightLockedElement) {
+      heightLockedElement.style.minHeight = '';
+      heightLockedElement = null;
+    }
   }
 
   /**
@@ -392,6 +471,8 @@
         });
       }
     }
+
+    unlockPopupHeight();
   }
 
   /**
@@ -409,6 +490,7 @@
       delete popup._outsideClickHandler;
     }
 
+    unlockPopupHeight();
     searchInput = null;
     playlistPopup = null;
   }
